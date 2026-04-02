@@ -1,0 +1,157 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>TFT Mini Simulator</title>
+<style>
+  body {
+    font-family: Arial;
+    background: #111;
+    color: white;
+    text-align: center;
+  }
+  .container {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+  }
+  .team {
+    border: 2px solid #444;
+    padding: 10px;
+    width: 40%;
+  }
+  button {
+    margin: 5px;
+    padding: 10px;
+    cursor: pointer;
+  }
+  .champ {
+    margin: 5px;
+    padding: 5px;
+    border: 1px solid #555;
+  }
+</style>
+</head>
+<body>
+
+<h1>TFT Mini Simulator</h1>
+
+<div>
+  <select id="champSelect"></select>
+  <button onclick="addToTeam('A')">Thêm vào Team A</button>
+  <button onclick="addToTeam('B')">Thêm vào Team B</button>
+</div>
+
+<div class="container">
+  <div class="team">
+    <h2>Team A</h2>
+    <div id="teamA"></div>
+  </div>
+
+  <div class="team">
+    <h2>Team B</h2>
+    <div id="teamB"></div>
+  </div>
+</div>
+
+<button onclick="fight()">⚔️ FIGHT</button>
+
+<h2 id="result"></h2>
+
+<script>
+// ===== DATA TƯỚNG =====
+const champions = [
+  { name: "Yasuo", hp: 1000, ad: 80, trait: "Đấu Sĩ" },
+  { name: "Garen", hp: 1200, ad: 70, trait: "Đỡ Đòn" },
+  { name: "Ashe", hp: 800, ad: 100, trait: "Xạ Thủ" },
+  { name: "Zed", hp: 900, ad: 110, trait: "Sát Thủ" }
+];
+
+// ===== TEAM =====
+let teamA = [];
+let teamB = [];
+
+// ===== LOAD SELECT =====
+const select = document.getElementById("champSelect");
+champions.forEach((c, i) => {
+  let option = document.createElement("option");
+  option.value = i;
+  option.text = c.name;
+  select.appendChild(option);
+});
+
+// ===== ADD TEAM =====
+function addToTeam(team) {
+  const champ = {...champions[select.value]};
+
+  if (team === "A") {
+    if (teamA.length < 5) teamA.push(champ);
+  } else {
+    if (teamB.length < 5) teamB.push(champ);
+  }
+
+  render();
+}
+
+// ===== RENDER =====
+function render() {
+  document.getElementById("teamA").innerHTML =
+    teamA.map(c => `<div class="champ">${c.name} (${c.hp})</div>`).join("");
+
+  document.getElementById("teamB").innerHTML =
+    teamB.map(c => `<div class="champ">${c.name} (${c.hp})</div>`).join("");
+}
+
+// ===== TỘC HỆ BONUS =====
+function applyTraitBonus(team) {
+  let counts = {};
+
+  team.forEach(c => {
+    counts[c.trait] = (counts[c.trait] || 0) + 1;
+  });
+
+  team.forEach(c => {
+    if (counts[c.trait] >= 2) {
+      c.ad *= 1.2; // buff damage
+    }
+  });
+}
+
+// ===== COMBAT =====
+function attack(attacker, defender) {
+  if (attacker.length === 0 || defender.length === 0) return;
+
+  let atk = attacker[Math.floor(Math.random() * attacker.length)];
+  let def = defender[Math.floor(Math.random() * defender.length)];
+
+  def.hp -= atk.ad;
+
+  if (def.hp <= 0) {
+    defender.splice(defender.indexOf(def), 1);
+  }
+}
+
+// ===== FIGHT =====
+function fight() {
+  let A = JSON.parse(JSON.stringify(teamA));
+  let B = JSON.parse(JSON.stringify(teamB));
+
+  applyTraitBonus(A);
+  applyTraitBonus(B);
+
+  let round = 0;
+
+  while (A.length > 0 && B.length > 0 && round < 50) {
+    attack(A, B);
+    attack(B, A);
+    round++;
+  }
+
+  let result = A.length > 0 ? "🏆 Team A thắng!" : "🏆 Team B thắng!";
+  document.getElementById("result").innerText = result;
+}
+
+</script>
+
+</body>
+</html>
