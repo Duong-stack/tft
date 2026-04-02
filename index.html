@@ -2,24 +2,22 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>TFT FIX</title>
+<title>TFT Simulator v4</title>
 <style>
 body{background:#0b0f1a;color:white;font-family:Arial;text-align:center}
 .board{display:grid;grid-template-columns:repeat(7,60px);gap:5px;justify-content:center;margin:20px}
 .cell{width:60px;height:60px;background:#1e2538;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer}
-.shop{margin:10px}
+.shop,.bench{margin:10px}
 .card{display:inline-block;border:1px solid #555;padding:5px;margin:5px;background:#222;cursor:pointer}
 .card:hover{background:#444}
-.bench{margin:10px}
 .log{height:120px;overflow:auto;border:1px solid #444;margin:10px;padding:5px;background:black}
 button{margin:5px;padding:8px;background:#333;color:white;border:none}
 </style>
 </head>
 <body>
 
-<h2>TFT WEB TEST</h2>
-
-<div>Gold: <span id="gold">10</span></div>
+<h2>TFT Simulator v4</h2>
+<div>Gold: <span id="gold">10</span> | Round: <span id="round">1</span></div>
 
 <div class="shop" id="shop"></div>
 <button onclick="roll()">Roll (-2)</button>
@@ -36,12 +34,17 @@ button{margin:5px;padding:8px;background:#333;color:white;border:none}
 let gold=10;
 let bench=[];
 let board=Array(49).fill(null);
+let round=1;
+let selected=null;
 
 const champs=[
-{name:"Yasuo",hp:1000,ad:80},
-{name:"Garen",hp:1200,ad:70},
-{name:"Ashe",hp:800,ad:100},
-{name:"Zed",hp:900,ad:110}
+{name:"Yasuo",hp:1000,ad:80,trait:"Duelist"},
+{name:"Garen",hp:1200,ad:70,trait:"Tank"},
+{name:"Ashe",hp:800,ad:100,trait:"Archer"},
+{name:"Zed",hp:900,ad:110,trait:"Assassin"},
+{name:"Darius",hp:1100,ad:85,trait:"Tank"},
+{name:"Lux",hp:700,ad:120,trait:"Mage"},
+{name:"Jinx",hp:850,ad:105,trait:"Archer"}
 ];
 
 // INIT BOARD
@@ -53,48 +56,26 @@ for(let i=0;i<49;i++){
  boardDiv.appendChild(d);
 }
 
-// LOG
-function log(t){
- document.getElementById("log").innerHTML+=t+"<br>";
-}
+function log(t){document.getElementById("log").innerHTML+=t+"<br>"}
 
-// UPDATE UI
 function update(){
  document.getElementById("gold").innerText=gold;
+ document.getElementById("round").innerText=round;
 
- // bench
  let b=document.getElementById("bench");
  b.innerHTML="";
  bench.forEach((c,i)=>{
   let d=document.createElement("div");
   d.className="card";
-  d.innerText=c.name;
-  d.onclick=()=>select(i);
+  d.innerText=c.name+" ⭐"+(c.star||1);
+  d.onclick=()=>{selected=i};
   b.appendChild(d);
  });
 }
 
-// SELECT FROM BENCH
-let selected=null;
-function select(i){
- selected=i;
- log("Chọn "+bench[i].name);
-}
-
-// PLACE
-function place(i){
- if(selected==null) return;
- board[i]=bench[selected];
- bench.splice(selected,1);
- selected=null;
- render();
- update();
-}
-
-// RENDER
 function render(){
  [...boardDiv.children].forEach((c,i)=>{
-  c.innerText=board[i]?board[i].name:"";
+  c.innerText=board[i]?board[i].name+"\n⭐"+(board[i].star||1):"";
  });
 }
 
@@ -104,55 +85,117 @@ function roll(){
  gold-=2;
  let shop=document.getElementById("shop");
  shop.innerHTML="";
+
  for(let i=0;i<5;i++){
   let champ=JSON.parse(JSON.stringify(champs[Math.floor(Math.random()*champs.length)]));
+  champ.star=1;
+
   let d=document.createElement("div");
   d.className="card";
-  d.innerText=champ.name;
-  d.onclick=()=>buy(champ);
+  d.innerText=champ.name+" (1g)";
+  d.onclick=()=>buy(champ,d);
   shop.appendChild(d);
  }
  update();
 }
 
-// BUY
-function buy(c){
+function buy(c,el){
  if(gold<1){log("Không đủ tiền");return;}
  gold-=1;
  bench.push(c);
+ el.remove(); // FIX: mua là mất khỏi shop
  log("Mua "+c.name);
+ upgrade();
  update();
+}
+
+// UPGRADE
+function upgrade(){
+ let map={};
+ bench.forEach(c=>{
+  let key=c.name+"_"+(c.star||1);
+  map[key]=(map[key]||[]);
+  map[key].push(c);
+ });
+
+ for(let k in map){
+  if(map[k].length>=3){
+   let base=map[k][0];
+   bench=bench.filter(x=>!(x.name===base.name && x.star===base.star));
+   let up={...base,star:base.star+1,hp:base.hp*1.8,ad:base.ad*1.5};
+   bench.push(up);
+   log("⭐ Lên sao: "+up.name+" → "+up.star);
+  }
+ }
+}
+
+function place(i){
+ if(selected==null) return;
+ board[i]=bench[selected];
+ bench.splice(selected,1);
+ selected=null;
+ render(); update();
+}
+
+// TRAIT
+function applyTraits(units){
+ let count={};
+ units.forEach(c=>{
+  count[c.trait]=(count[c.trait]||0)+1;
+ });
+
+ units.forEach(c=>{
+  if(count[c.trait]>=2) c.ad*=1.2;
+ });
+}
+
+// ENEMY GENERATOR
+function generateEnemy(){
+ let enemy=[];
+ for(let i=0;i<3+round;i++){
+  let c=JSON.parse(JSON.stringify(champs[Math.floor(Math.random()*champs.length)]));
+  c.hp*=0.8;
+  c.ad*=0.8;
+  enemy.push(c);
+ }
+ return enemy;
 }
 
 // FIGHT
 function fight(){
- let units=board.filter(x=>x);
- if(units.length<2){log("Không đủ tướng");return;}
+ let player=board.filter(x=>x);
+ if(player.length===0){log("Không có tướng");return;}
+
+ let enemy = (round%3===0)?generateEnemy():[{name:"Quái",hp:500+round*50,ad:50+round*10}];
+
+ applyTraits(player);
+ applyTraits(enemy);
+
+ log("=== ROUND "+round+" ===");
+
+ let all=[...player,...enemy];
 
  let int=setInterval(()=>{
-  let a=units[Math.floor(Math.random()*units.length)];
-  let b=units[Math.floor(Math.random()*units.length)];
+  if(all.length<=1){clearInterval(int);log("Xong round");round++;update();return;}
+
+  let a=all[Math.floor(Math.random()*all.length)];
+  let b=all[Math.floor(Math.random()*all.length)];
   if(a===b) return;
 
   b.hp-=a.ad;
-  log(a.name+" đánh "+b.name);
 
   if(b.hp<=0){
    log("💀 "+b.name);
-   units=units.filter(x=>x!==b);
+   all=all.filter(x=>x!==b);
   }
 
-  if(units.length<=1){
-   clearInterval(int);
-   log("🏆 Xong");
-  }
- },500);
+ },400);
 }
 
 // INIT
 roll();
 update();
-
 </script>
+
 </body>
 </html>
