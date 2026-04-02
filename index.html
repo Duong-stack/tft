@@ -2,42 +2,157 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>TFT Simulator PRO MAX v2</title>
+<title>TFT FIX</title>
 <style>
 body{background:#0b0f1a;color:white;font-family:Arial;text-align:center}
-.board{display:grid;grid-template-columns:repeat(7,70px);gap:4px;justify-content:center;margin:20px}
-.cell{width:70px;height:70px;background:#1e2538;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;flex-direction:column}
+.board{display:grid;grid-template-columns:repeat(7,60px);gap:5px;justify-content:center;margin:20px}
+.cell{width:60px;height:60px;background:#1e2538;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer}
 .shop{margin:10px}
-.champ-card{display:inline-block;border:1px solid #555;padding:5px;margin:5px;cursor:pointer;width:90px}
-img{width:40px;height:40px}
-.log{height:150px;overflow:auto;border:1px solid #444;margin:10px;padding:5px}
+.card{display:inline-block;border:1px solid #555;padding:5px;margin:5px;background:#222;cursor:pointer}
+.card:hover{background:#444}
+.bench{margin:10px}
+.log{height:120px;overflow:auto;border:1px solid #444;margin:10px;padding:5px;background:black}
+button{margin:5px;padding:8px;background:#333;color:white;border:none}
 </style>
 </head>
 <body>
-<h1>TFT Simulator PRO MAX v2</h1>
+
+<h2>TFT WEB TEST</h2>
 
 <div>Gold: <span id="gold">10</span></div>
 
 <div class="shop" id="shop"></div>
-<button onclick="rollShop()">Roll (2 gold)</button>
-<button onclick="levelUp()">Level Up (4 gold)</button>
+<button onclick="roll()">Roll (-2)</button>
+<button onclick="fight()">Fight</button>
+
+<h3>Bench</h3>
+<div class="bench" id="bench"></div>
 
 <div class="board" id="board"></div>
 
-<h3>Log</h3>
 <div class="log" id="log"></div>
 
 <script>
-const pool = [
-{name:"Yasuo",img:"https://i.imgur.com/6X4Z4sL.png",hp:1000,ad:80,cost:1,trait:"Duelist"},
-{name:"Garen",img:"https://i.imgur.com/6X4Z4sL.png",hp:1300,ad:60,cost:1,trait:"Tank"},
-{name:"Ashe",img:"https://i.imgur.com/6X4Z4sL.png",hp:800,ad:100,cost:2,trait:"Archer"},
-{name:"Zed",img:"https://i.imgur.com/6X4Z4sL.png",hp:900,ad:110,cost:3,trait:"Assassin"}
+let gold=10;
+let bench=[];
+let board=Array(49).fill(null);
+
+const champs=[
+{name:"Yasuo",hp:1000,ad:80},
+{name:"Garen",hp:1200,ad:70},
+{name:"Ashe",hp:800,ad:100},
+{name:"Zed",hp:900,ad:110}
 ];
 
-let board = Array(49).fill(null);
-let bench = [];
-let gold = 10;
-let level = 1;
+// INIT BOARD
+const boardDiv=document.getElementById("board");
+for(let i=0;i<49;i++){
+ let d=document.createElement("div");
+ d.className="cell";
+ d.onclick=()=>place(i);
+ boardDiv.appendChild(d);
+}
 
-const
+// LOG
+function log(t){
+ document.getElementById("log").innerHTML+=t+"<br>";
+}
+
+// UPDATE UI
+function update(){
+ document.getElementById("gold").innerText=gold;
+
+ // bench
+ let b=document.getElementById("bench");
+ b.innerHTML="";
+ bench.forEach((c,i)=>{
+  let d=document.createElement("div");
+  d.className="card";
+  d.innerText=c.name;
+  d.onclick=()=>select(i);
+  b.appendChild(d);
+ });
+}
+
+// SELECT FROM BENCH
+let selected=null;
+function select(i){
+ selected=i;
+ log("Chọn "+bench[i].name);
+}
+
+// PLACE
+function place(i){
+ if(selected==null) return;
+ board[i]=bench[selected];
+ bench.splice(selected,1);
+ selected=null;
+ render();
+ update();
+}
+
+// RENDER
+function render(){
+ [...boardDiv.children].forEach((c,i)=>{
+  c.innerText=board[i]?board[i].name:"";
+ });
+}
+
+// SHOP
+function roll(){
+ if(gold<2){log("Thiếu tiền");return;}
+ gold-=2;
+ let shop=document.getElementById("shop");
+ shop.innerHTML="";
+ for(let i=0;i<5;i++){
+  let champ=JSON.parse(JSON.stringify(champs[Math.floor(Math.random()*champs.length)]));
+  let d=document.createElement("div");
+  d.className="card";
+  d.innerText=champ.name;
+  d.onclick=()=>buy(champ);
+  shop.appendChild(d);
+ }
+ update();
+}
+
+// BUY
+function buy(c){
+ if(gold<1){log("Không đủ tiền");return;}
+ gold-=1;
+ bench.push(c);
+ log("Mua "+c.name);
+ update();
+}
+
+// FIGHT
+function fight(){
+ let units=board.filter(x=>x);
+ if(units.length<2){log("Không đủ tướng");return;}
+
+ let int=setInterval(()=>{
+  let a=units[Math.floor(Math.random()*units.length)];
+  let b=units[Math.floor(Math.random()*units.length)];
+  if(a===b) return;
+
+  b.hp-=a.ad;
+  log(a.name+" đánh "+b.name);
+
+  if(b.hp<=0){
+   log("💀 "+b.name);
+   units=units.filter(x=>x!==b);
+  }
+
+  if(units.length<=1){
+   clearInterval(int);
+   log("🏆 Xong");
+  }
+ },500);
+}
+
+// INIT
+roll();
+update();
+
+</script>
+</body>
+</html>
