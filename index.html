@@ -1,154 +1,148 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>TFT Mini Simulator</title>
+<title>TFT PRO MAX</title>
 <style>
-  body {
-    font-family: Arial;
-    background: #111;
-    color: white;
-    text-align: center;
-  }
-  .container {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 20px;
-  }
-  .team {
-    border: 2px solid #444;
-    padding: 10px;
-    width: 40%;
-  }
-  button {
-    margin: 5px;
-    padding: 10px;
-    cursor: pointer;
-  }
-  .champ {
-    margin: 5px;
-    padding: 5px;
-    border: 1px solid #555;
-  }
+body { background:#111; color:white; font-family:Arial; text-align:center;}
+.board { display:grid; grid-template-columns: repeat(6,60px); gap:5px; justify-content:center; margin:20px;}
+.cell { width:60px; height:60px; background:#222; border:1px solid #444; display:flex; align-items:center; justify-content:center; font-size:10px;}
+.controls { margin:10px;}
+.log { height:150px; overflow:auto; border:1px solid #444; padding:5px;}
 </style>
 </head>
 <body>
 
-<h1>TFT Mini Simulator</h1>
+<h1>TFT PRO MAX</h1>
 
-<div>
-  <select id="champSelect"></select>
-  <button onclick="addToTeam('A')">Thêm vào Team A</button>
-  <button onclick="addToTeam('B')">Thêm vào Team B</button>
+<div class="controls">
+<select id="champSelect"></select>
+<button onclick="selectChamp()">Chọn tướng</button>
+<button onclick="startFight()">⚔️ Fight</button>
 </div>
 
-<div class="container">
-  <div class="team">
-    <h2>Team A</h2>
-    <div id="teamA"></div>
-  </div>
+<div class="board" id="board"></div>
 
-  <div class="team">
-    <h2>Team B</h2>
-    <div id="teamB"></div>
-  </div>
-</div>
-
-<button onclick="fight()">⚔️ FIGHT</button>
-
-<h2 id="result"></h2>
+<h3>Log</h3>
+<div class="log" id="log"></div>
 
 <script>
-// ===== DATA TƯỚNG =====
-const champions = [
-  { name: "Yasuo", hp: 1000, ad: 80, trait: "Đấu Sĩ" },
-  { name: "Garen", hp: 1200, ad: 70, trait: "Đỡ Đòn" },
-  { name: "Ashe", hp: 800, ad: 100, trait: "Xạ Thủ" },
-  { name: "Zed", hp: 900, ad: 110, trait: "Sát Thủ" }
+// ===== DATA =====
+const champs = [
+{ name:"Yasuo", hp:1000, ad:80, mana:0, maxMana:50, trait:"Duelist", skill:(c,t)=>{t.hp-=150;} },
+{ name:"Garen", hp:1300, ad:60, mana:0, maxMana:60, trait:"Tank", skill:(c,t)=>{c.hp+=100;} },
+{ name:"Ashe", hp:800, ad:100, mana:0, maxMana:40, trait:"Archer", skill:(c,t)=>{t.hp-=200;} },
+{ name:"Zed", hp:900, ad:110, mana:0, maxMana:30, trait:"Assassin", skill:(c,t)=>{t.hp-=250;} }
 ];
 
-// ===== TEAM =====
-let teamA = [];
-let teamB = [];
+let selected = null;
+let board = Array(36).fill(null);
 
-// ===== LOAD SELECT =====
-const select = document.getElementById("champSelect");
-champions.forEach((c, i) => {
-  let option = document.createElement("option");
-  option.value = i;
-  option.text = c.name;
-  select.appendChild(option);
+// ===== INIT BOARD =====
+const boardDiv = document.getElementById("board");
+for(let i=0;i<36;i++){
+  let div=document.createElement("div");
+  div.className="cell";
+  div.onclick=()=>placeChamp(i);
+  boardDiv.appendChild(div);
+}
+
+// ===== SELECT =====
+const sel=document.getElementById("champSelect");
+champs.forEach((c,i)=>{
+  let o=document.createElement("option");
+  o.value=i;
+  o.text=c.name;
+  sel.appendChild(o);
 });
 
-// ===== ADD TEAM =====
-function addToTeam(team) {
-  const champ = {...champions[select.value]};
+function selectChamp(){
+  selected = JSON.parse(JSON.stringify(champs[sel.value]));
+}
 
-  if (team === "A") {
-    if (teamA.length < 5) teamA.push(champ);
-  } else {
-    if (teamB.length < 5) teamB.push(champ);
+// ===== PLACE =====
+function placeChamp(i){
+  if(selected){
+    board[i]=JSON.parse(JSON.stringify(selected));
+    render();
   }
-
-  render();
 }
 
 // ===== RENDER =====
-function render() {
-  document.getElementById("teamA").innerHTML =
-    teamA.map(c => `<div class="champ">${c.name} (${c.hp})</div>`).join("");
-
-  document.getElementById("teamB").innerHTML =
-    teamB.map(c => `<div class="champ">${c.name} (${c.hp})</div>`).join("");
+function render(){
+  [...boardDiv.children].forEach((cell,i)=>{
+    cell.innerText = board[i]?board[i].name:"";
+  });
 }
 
-// ===== TỘC HỆ BONUS =====
-function applyTraitBonus(team) {
-  let counts = {};
+// ===== HELPERS =====
+function log(msg){
+  document.getElementById("log").innerHTML += msg+"<br>";
+}
 
-  team.forEach(c => {
-    counts[c.trait] = (counts[c.trait] || 0) + 1;
+// ===== FIND TARGET =====
+function getTarget(i){
+  for(let j=0;j<36;j++){
+    if(board[j] && j!==i) return board[j];
+  }
+  return null;
+}
+
+// ===== TRAIT BONUS =====
+function applyTraits(){
+  let count={};
+  board.forEach(c=>{
+    if(c) count[c.trait]=(count[c.trait]||0)+1;
   });
 
-  team.forEach(c => {
-    if (counts[c.trait] >= 2) {
-      c.ad *= 1.2; // buff damage
+  board.forEach(c=>{
+    if(c && count[c.trait]>=2){
+      c.ad*=1.2;
     }
   });
 }
 
-// ===== COMBAT =====
-function attack(attacker, defender) {
-  if (attacker.length === 0 || defender.length === 0) return;
+// ===== COMBAT LOOP =====
+function startFight(){
+  log("=== BẮT ĐẦU ===");
+  applyTraits();
 
-  let atk = attacker[Math.floor(Math.random() * attacker.length)];
-  let def = defender[Math.floor(Math.random() * defender.length)];
+  let tick=0;
+  let interval=setInterval(()=>{
+    tick++;
+    board.forEach((c,i)=>{
+      if(!c) return;
 
-  def.hp -= atk.ad;
+      let target=getTarget(i);
+      if(!target) return;
 
-  if (def.hp <= 0) {
-    defender.splice(defender.indexOf(def), 1);
-  }
-}
+      // attack
+      target.hp -= c.ad;
+      c.mana += 10;
+      log(c.name+" đánh "+target.name);
 
-// ===== FIGHT =====
-function fight() {
-  let A = JSON.parse(JSON.stringify(teamA));
-  let B = JSON.parse(JSON.stringify(teamB));
+      // skill
+      if(c.mana>=c.maxMana){
+        c.skill(c,target);
+        c.mana=0;
+        log("🔥 "+c.name+" tung skill!");
+      }
 
-  applyTraitBonus(A);
-  applyTraitBonus(B);
+      if(target.hp<=0){
+        log("💀 "+target.name+" chết");
+        board[board.indexOf(target)] = null;
+      }
+    });
 
-  let round = 0;
+    render();
 
-  while (A.length > 0 && B.length > 0 && round < 50) {
-    attack(A, B);
-    attack(B, A);
-    round++;
-  }
+    let alive = board.filter(x=>x).length;
+    if(alive<=1 || tick>50){
+      clearInterval(interval);
+      log("=== KẾT THÚC ===");
+    }
 
-  let result = A.length > 0 ? "🏆 Team A thắng!" : "🏆 Team B thắng!";
-  document.getElementById("result").innerText = result;
+  },500);
 }
 
 </script>
